@@ -1,133 +1,144 @@
-# Claude2OpenCode
+# Shenron's OpenCode Skills
 
-A subagent-based migration toolkit for converting Claude Code project configurations to OpenCode format.
+A personal collection of OpenCode skills for AI-assisted development workflows.
 
 ## Overview
 
-This repository provides the files and instructions needed to set up a Claude Code subagent that can automatically migrate your Claude Code project configuration to OpenCode format. The migration handles:
+This repository contains custom skills I use with OpenCode to enhance my development workflow. Each skill is self-contained in its own folder with a `SKILL.md` file describing its purpose and usage.
 
-- **CLAUDE.md / .claude/CLAUDE.md** → AGENTS.md (project rules)
-- **Agents** (.claude/agents/) → OpenCode prompts
-- **Commands** (.claude/commands/) → OpenCode commands
-- **Skills** (.claude/skills/) → OpenCode instructions
-- **MCP Servers** (settings.json, mcp*.json) → MCP.md with setup instructions
+## Skills
 
-## Installation
+### [claude2opencode-skill](./claude2opencode-skill/)
 
-1. Clone this repository:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/claude2opencode.git
-   ```
+Migrate Claude Code project configurations to OpenCode format.
 
-2. Copy the files to your Claude Code configuration:
-   ```bash
-   # Copy the migration tool
-   mkdir -p ~/.claude/tools
-   cp tools/migrate_claude_project.py ~/.claude/tools/
+**Use case**: When switching from Claude Code to OpenCode, convert existing project configurations including agents, commands, skills, and MCP settings.
 
-   # Copy the agent definition
-   mkdir -p ~/.claude/agents
-   cp agents/migrate_project.md ~/.claude/agents/
+[View skill →](./claude2opencode-skill/SKILL.md)
 
-   # Copy the command (optional)
-   mkdir -p ~/.claude/commands
-   cp commands/migrate.md ~/.claude/commands/
-   ```
+### [pdf-study-qa-skill](./pdf-study-qa-skill/)
+
+Study and ask questions about PDF documents using AI-powered analysis.
+
+**Use case**: Extract insights from research papers, documentation, books, or any PDF by asking natural language questions.
+
+[View skill →](./pdf-study-qa-skill/SKILL.md)
+
+## How to Use
+
+### Loading a Skill
+
+In OpenCode, load a skill using the `/skill` command:
+
+```bash
+/skill claude2opencode
+```
+
+Or reference the skill path directly:
+
+```bash
+/skill ./claude2opencode-skill/SKILL.md
+```
+
+### Listing Available Skills
+
+To see all available skills in this repository:
+
+```bash
+ls -la ~/Desktop/Projects/opencode-skill-shenron/
+```
+
+Each folder ending in `-skill` contains a skill definition.
+
+## Using with skills.sh
+
+If you have a `skills.sh` script for managing OpenCode skills, add this repository to your skill path:
+
+```bash
+# In your skills.sh or shell configuration
+export OPENCODE_SKILLS_PATH="$HOME/Desktop/Projects/opencode-skill-shenron:$OPENCODE_SKILLS_PATH"
+```
+
+Then you can list and load skills:
+
+```bash
+# List all available skills
+skills.sh list
+
+# Load a specific skill
+skills.sh load claude2opencode
+
+# Or directly with opencode
+opencode --skill claude2encode
+```
+
+### Alternative: Symlink Method
+
+If your OpenCode configuration supports skill directories:
+
+```bash
+# Link this repo to your OpenCode skills directory
+ln -s ~/Desktop/Projects/opencode-skill-shenron ~/.config/opencode/skills/shenron
+```
+
+Then load skills by name:
+
+```bash
+opencode --skill shenron/claude2opencode
+```
+
+## Adding a New Skill
+
+1. Create a new folder: `mkdir my-new-skill`
+2. Add a `SKILL.md` file with:
+   - Skill name and description
+   - Usage instructions
+   - Requirements
+   - Examples
+3. Add any supporting files (scripts, configs, etc.)
+4. Update this README to include the new skill
+
+## Skill Format
+
+Each skill folder should contain:
+
+```
+skill-name/
+├── SKILL.md          # Main skill definition (required)
+├── README.md         # Optional: detailed documentation
+├── scripts/          # Optional: supporting scripts
+├── config/           # Optional: configuration files
+└── examples/         # Optional: example usage
+```
+
+The `SKILL.md` file follows this structure:
+
+```markdown
+# Skill Name
+
+Brief description.
+
+## Description
+
+Detailed explanation of what the skill does.
 
 ## Usage
 
-### Using the Command (Recommended)
+How to use the skill.
 
-If you installed the command, simply run:
+## Features
 
-```
-/migrate opencode
-```
-
-Or for Codex format:
-
-```
-/migrate codex
-```
-
-### Direct Agent Invocation
-
-You can also invoke the agent directly:
-
-```
-Call the migrate_project agent with target=opencode
-```
-
-## Output
-
-The migration creates files under `.migration_out/<target>/`:
-
-```
-.migration_out/opencode/
-├── AGENTS.md                    # Migrated rules from CLAUDE.md
-├── MCP.md                       # MCP server setup instructions
-├── MIGRATION_REPORT.md          # Summary of migration
-├── manifest.json                # File mapping manifest
-├── opencode.jsonc               # OpenCode configuration
-└── .opencode/
-    ├── prompts/                 # Agent prompts
-    ├── command/                 # Commands
-    └── instructions/
-        └── skills/              # Skills
-```
-
-## File Structure
-
-```
-claude2opencode/
-├── README.md                    # This file
-├── LICENSE                      # MIT License
-├── tools/
-│   └── migrate_claude_project.py    # Core migration script
-├── agents/
-│   └── migrate_project.md       # Agent definition
-└── commands/
-    └── migrate.md               # Command shortcut
-```
-
-## How It Works
-
-1. **Discovery**: The agent scans your `.claude/` directory for agents, skills, commands, and settings files.
-
-2. **Parsing**: Files are parsed for YAML frontmatter metadata (name, description) and content.
-
-3. **Transformation**: Content is converted to OpenCode-compatible format:
-   - Agent prompts become `.opencode/prompts/<name>.txt`
-   - Commands become `.opencode/command/<name>.md`
-   - Skills become `.opencode/instructions/skills/<name>.md`
-
-4. **MCP Extraction**: MCP server configurations are extracted from settings files and documented with setup instructions.
-
-5. **Report Generation**: A detailed migration report is created with source inventory, mapping decisions, and manual follow-ups.
-
-## Supported Targets
-
-| Target | Description |
-|--------|-------------|
-| `opencode` | Full OpenCode format with `.opencode.jsonc` configuration |
-| `codex` | Codex-friendly markdown bundle for manual integration |
-
-## Safety Features
-
-- **Non-destructive**: Never deletes original files
-- **No overwrites**: Creates numbered output directories if target exists
-- **Full traceability**: Manifest tracks every generated file back to its source
-- **Clear reporting**: Migration report documents all decisions and required follow-ups
+Key features and capabilities.
 
 ## Requirements
 
-- Python 3.8+
-- Claude Code CLI with subagent support
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+Prerequisites and dependencies.
+```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+This is a personal skill repository, but feel free to fork and adapt for your own use!
