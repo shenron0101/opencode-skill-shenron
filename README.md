@@ -24,6 +24,14 @@ Study and ask questions about PDF documents using AI-powered analysis.
 
 [View skill →](./pdf-study-qa-skill/SKILL.md)
 
+### [graph-visualizer](./graph-visualizer/)
+
+Build fully 3D interactive goal-graph visualizations as self-contained HTML files using Three.js.
+
+**Use case**: Visualize goals, systems, workflows, or projects as animated directed graphs — with a 3D space background, glowing floating nodes, an animated pulse traveling the loop, and a collapsible constraints sidebar.
+
+[View skill →](./graph-visualizer/SKILL.md)
+
 ## How to Use
 
 ### Loading a Skill
