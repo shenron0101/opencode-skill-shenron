@@ -1,45 +1,29 @@
 ---
 name: graph-visualizer
 description: >
-  Builds a fully 3D interactive goal-graph visualization as a self-contained HTML file using Three.js. Use this skill whenever the user wants to visualize a goal, system, workflow, or project as an animated directed graph — with a 3D space background, glowing floating nodes, an animated pulse traveling the loop, and a collapsible constraints sidebar. Trigger when the user says things like "create a graph for my goal", "visualize my system as a graph", "build a 3D graph app", "show my workflow as a graph", or "make an interactive graph visualization". Parses natural language description of nodes, edges, weights, and constraints, and produces a production-grade Three.js HTML app.
+  Builds a fully 3D interactive goal-graph visualization as a self-contained HTML file using Three.js. Use this skill whenever the user wants to visualize a goal, system, workflow, or project as an animated directed graph — with a 3D space background, glowing floating nodes, an animated pulse traveling the loop, and a collapsible constraints sidebar. Trigger when the user says things like "create a graph for my goal", "visualize my system as a graph", "build a 3D graph app", "show my workflow as a graph", or "make an interactive graph visualization". Parses natural language description of nodes, edges, weights, and constraints, and produces THREE distinct production-grade Three.js HTML files with different aesthetics.
 ---
 
 # Graph Visualizer — Three.js Build Guide
 
-Produces a **single self-contained HTML file**. All JS inline. No build tools. Opens in any browser.
+Produces **THREE separate self-contained HTML files**, each with a distinct aesthetic direction. All JS inline. No build tools. Open in any browser.
 
 ---
 
 ## Before writing any code, read these skills
 
-This skill depends on the following Three.js reference skills. Read them before coding:
+Read ALL of the following skills before writing a single line:
 
 - `threejs-fundamentals` — scene, camera, renderer, clock, resize
-- `threejs-geometry` — node shapes, TubeGeometry for edges, Points for stars
-- `threejs-materials` — MeshStandardMaterial, emissive glow, transparency
-- `threejs-shaders` — ShaderMaterial for custom pulse/glow effects
-- `threejs-postprocessing` — UnrealBloomPass for node and pulse bloom
-- `threejs-animation` — clock-driven pulse traversal along path
-- `threejs-lighting` — ambient + point lights for node illumination
+- `threejs-geometry` — TubeGeometry for edges, Points for stars
+- `threejs-materials` — MeshStandardMaterial, emissive glow
+- `threejs-shaders` — ShaderMaterial for custom effects
+- `threejs-postprocessing` — UnrealBloomPass
+- `threejs-animation` — clock-driven pulse traversal
+- `threejs-lighting` — point lights for node illumination
+- `frontend-design` — aesthetic direction for each of the 3 variants
 
-Import Three.js and addons from CDN using importmap:
-```html
-<script type="importmap">
-{
-  "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
-  }
-}
-</script>
-<script type="module">
-import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-</script>
-```
+The `frontend-design` skill defines how to choose bold, distinctive, non-generic visual directions. Apply it to choose THREE meaningfully different themes (e.g. one dark/cyberpunk, one light/minimal, one warm/organic). Each variant must be genuinely distinct — different fonts, different color palettes, different node shapes, different edge styles.
 
 ---
 
@@ -51,29 +35,38 @@ Extract from the user's description:
 GOAL_NODE     — final destination node (label + metric if given)
 NODES[]       — { id, label, layer: 0..N, slot: 0..M, type: 'start'|'parallel'|'sequential'|'goal', weight: 'large'|'medium'|'small' }
 EDGES[]       — { from, to, dashed?: boolean }
-LOOP_PATH[]   — ordered node IDs for the animated pulse (must end back at start to close the loop)
+LOOP_PATH[]   — ordered node IDs the pulse travels (last entry loops back to first)
 CONSTRAINTS[] — { id, label, type: 'time'|'energy'|'personal'|'market'|'economic'|'other', detail }
 ```
 
-Nodes are laid out in layers along the Y axis. Layer 0 = top (start node), last layer = bottom (goal node). Within a layer, nodes are spread along X by slot index.
+Nodes are laid out in layers along Y. Layer 0 = top (start), last layer = bottom (goal). Within a layer, nodes spread along X by slot.
 
 ---
 
-## Step 2 — Scene setup (from `threejs-fundamentals`)
+## Step 2 — Design three aesthetic variants (from `frontend-design`)
+
+Before any code, commit to 3 fully distinct aesthetic directions. Name them. Example sets (don't copy these — invent your own each time):
+
+- **Variant A**: Dark cosmic / deep navy + electric cyan + gold, sharp geometric nodes, Syne font
+- **Variant B**: Terminal green / pure black + phosphor green + white, monospace nodes, IBM Plex Mono font
+- **Variant C**: Warm amber / dark brown + amber + cream, rounded organic nodes, Playfair Display font
+
+Each variant gets its own HTML file. The graph data (nodes, edges, constraints) is identical — only the visual treatment changes.
+
+---
+
+## Step 3 — Three.js scene setup (same for all variants, from `threejs-fundamentals`)
 
 ```javascript
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x020610);
-
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(60, W / H, 0.1, 200);
 camera.position.set(0, 0, 18);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(W, H);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
-document.body.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -85,21 +78,24 @@ controls.maxDistance = 40;
 
 ---
 
-## Step 3 — Space background starfield (from `threejs-geometry`)
+## Step 4 — Starfield background (from `threejs-geometry`)
 
-Use `THREE.Points` with `THREE.BufferGeometry`. Place ~800 stars at random positions within a sphere of radius 80. Use `PointsMaterial({ size: 0.15, sizeAttenuation: true, color: 0xffffff })`. Slowly rotate the group each frame: `stars.rotation.y += delta * 0.008`.
+~800 `THREE.Points` placed in a sphere of radius 60–80. Slowly rotate each frame.
 
-Also add 2–3 large sphere shells with `MeshBasicMaterial({ color: 0x110033, transparent: true, opacity: 0.015, side: THREE.BackSide })` at radii 50–70 for nebula depth.
+**Vary the starfield per variant:**
+- Variant A: white stars, 3 dark-blue/purple nebula shells
+- Variant B: green-tinted stars (color: 0x88ffaa), no nebula shells — pure black void
+- Variant C: warm cream stars (color: 0xffe8c0), soft amber nebula shells
 
 ---
 
-## Step 4 — Node 3D positions
+## Step 5 — Node layout
 
 ```javascript
 const LAYER_SPACING = 3.2;
 const SLOT_SPACING  = 3.8;
 
-function nodePosition(node, layerNodeCounts, totalLayers) {
+function nodePosition(node) {
   const count = layerNodeCounts[node.layer];
   const x = (node.slot - (count - 1) / 2) * SLOT_SPACING;
   const y = -node.layer * LAYER_SPACING + (totalLayers - 1) * LAYER_SPACING / 2;
@@ -109,141 +105,149 @@ function nodePosition(node, layerNodeCounts, totalLayers) {
 
 ---
 
-## Step 5 — Node meshes (from `threejs-geometry` + `threejs-materials`)
+## Step 6 — Node meshes: VISIBILITY IS CRITICAL (from `threejs-materials`)
 
-Use `THREE.BoxGeometry` with scale to create pill-like nodes. Sizes by weight:
-- `large`: 2.0 × 0.55 × 0.35
-- `medium`: 1.6 × 0.5 × 0.35
-- `small`: 1.3 × 0.45 × 0.35
+**The #1 visibility problem in past versions: nodes were near-black with low emissive — impossible to read.**
 
-Materials by node type (`MeshStandardMaterial`):
+Fix with these rules:
+1. **Base color must NOT be near-black.** Use at minimum 15–25% lightness. E.g. `0x1a2a3a` not `0x020408`.
+2. **emissiveIntensity must be 1.0–2.5** (not 0.3–0.5). Nodes should visibly glow.
+3. **Add a visible border/outline**: Create a slightly larger `BoxGeometry` behind each node with an emissive outline material, scaled by 1.05. This creates a visible glowing edge.
+4. **Labels must be large and bright**: canvas size 512×128, font size 38–44px, white fill, with a subtle dark shadow behind the text for contrast.
+
 ```javascript
-goal:       { color: 0x1a1200, emissive: 0xf5c842, emissiveIntensity: 0.8, roughness: 0.3, metalness: 0.4 }
-start:      { color: 0x001a18, emissive: 0x6ee7f7, emissiveIntensity: 0.5, roughness: 0.5, metalness: 0.2 }
-parallel:   { color: 0x080820, emissive: 0x4466ff, emissiveIntensity: 0.3, roughness: 0.6, metalness: 0.1 }
-gate:       { color: 0x120a1a, emissive: 0xa78bfa, emissiveIntensity: 0.4, roughness: 0.5, metalness: 0.2 }
+// CORRECT — high visibility node
+{ color: 0x0d2235,  emissive: 0x4a9eff, emissiveIntensity: 1.8, roughness: 0.4, metalness: 0.3 }
+
+// WRONG — near-invisible
+{ color: 0x080820, emissive: 0x4466ff, emissiveIntensity: 0.3, roughness: 0.6, metalness: 0.1 }
 ```
 
-Add node label as a canvas texture sprite:
-1. Create offscreen canvas, write label text with Syne/sans-serif font
-2. `new THREE.CanvasTexture(canvas)` → `SpriteMaterial({ map, transparent: true })`
-3. `new THREE.Sprite(spriteMaterial)` positioned slightly in front of node (z + 0.3), scaled to fit
+**Node sizes by weight:**
+- `large`: 2.2 × 0.6 × 0.4
+- `medium`: 1.8 × 0.55 × 0.4
+- `small`: 1.4 × 0.5 × 0.4
+
+**Outline glow mesh** (add behind each node):
+```javascript
+const outlineGeo = new THREE.BoxGeometry(dim.w * 1.08, dim.h * 1.2, dim.d * 0.5);
+const outlineMat = new THREE.MeshBasicMaterial({ color: emissiveColor, transparent: true, opacity: 0.2 });
+const outline = new THREE.Mesh(outlineGeo, outlineMat);
+outline.position.copy(nodePos);
+outline.position.z -= 0.05;
+scene.add(outline);
+```
+
+**Vary node shapes per variant:**
+- Variant A: BoxGeometry (sharp, geometric)
+- Variant B: BoxGeometry with extreme aspect ratio (wide and flat, terminal-style)
+- Variant C: Use a `CylinderGeometry(w/2, w/2, h, 32)` (rounded pill, laid flat)
 
 ---
 
-## Step 6 — Edges as tubes (from `threejs-geometry`)
+## Step 7 — Edges as tubes: VISIBILITY IS CRITICAL (from `threejs-geometry`)
 
-For each edge, build a `THREE.CubicBezierCurve3` between the two node positions. Control points: offset Y by ±30% of the distance, offset Z slightly for depth variation.
+**The #2 visibility problem: edges at opacity 0.45 on dark background are near-invisible.**
+
+Fix:
+1. **opacity must be 0.7–0.9** for normal edges
+2. **Edge color should be light/bright enough to contrast the background**, not match it.
+3. Use the variant's accent color for edges (same hue as node glow but slightly desaturated)
 
 ```javascript
-const curve = new THREE.CubicBezierCurve3(
-  fromPos,
-  new THREE.Vector3(fromPos.x, fromPos.y - dy * 0.4, fromPos.z + 0.8),
-  new THREE.Vector3(toPos.x,   toPos.y   + dy * 0.4, toPos.z   + 0.8),
-  toPos
-);
-const tube = new THREE.TubeGeometry(curve, 20, 0.025, 6, false);
-const mat  = new THREE.MeshBasicMaterial({ color: 0x1a3a4a, transparent: true, opacity: 0.45 });
-scene.add(new THREE.Mesh(tube, mat));
+// CORRECT
+new THREE.MeshBasicMaterial({ color: 0x1a5a8a, transparent: true, opacity: 0.75 })
+
+// WRONG — invisible
+new THREE.MeshBasicMaterial({ color: 0x1a3a4a, transparent: true, opacity: 0.45 })
 ```
 
-For the feedback loop edge (goal → start), arc far out to the left (offset X by −8) to visually wrap around the graph. Use lower opacity (0.25) and a slightly warmer color (0x2a1a0a).
+Tube radius: `0.035` (not 0.025 — thicker is more visible).
+
+For the feedback loop edge (goal → start): arc far left (X offset -10), opacity 0.4, dashed feel via alternating thin/thick segments if possible, otherwise just lower opacity.
 
 ---
 
-## Step 7 — Animated pulse (from `threejs-animation`)
+## Step 8 — Animated pulse (from `threejs-animation`)
 
-Build a full closed path by concatenating bezier curves for each consecutive pair in `LOOP_PATH`:
+Build the full closed `CatmullRomCurve3` from LOOP_PATH bezier segments (30 points each).
+
+Pulse sphere: `SphereGeometry(0.14, 16, 16)` — slightly larger than before (0.1 was too small).
 
 ```javascript
-const allPoints = [];
-for (let i = 0; i < LOOP_PATH.length; i++) {
-  const from = nodePositions[LOOP_PATH[i]];
-  const to   = nodePositions[LOOP_PATH[(i + 1) % LOOP_PATH.length]];
-  const curve = new THREE.CubicBezierCurve3(from, cp1, cp2, to); // same control points as edge
-  allPoints.push(...curve.getPoints(40));
-}
-const fullPath = new THREE.CatmullRomCurve3(allPoints, true); // closed = true
+// emissiveIntensity must be high — this is the brightest element in the scene
+new THREE.MeshStandardMaterial({ color: accentColor, emissive: accentColor, emissiveIntensity: 4.0 })
 ```
 
-Pulse mesh: `SphereGeometry(0.1, 12, 12)` with `MeshStandardMaterial({ color: 0x6ee7f7, emissive: 0x6ee7f7, emissiveIntensity: 3.0 })`.
+4–5 trail ghosts, decreasing size and emissiveIntensity. Loop duration: 8 seconds.
 
-Animate:
-```javascript
-const LOOP_DURATION = 8; // seconds
-const t = (elapsed % LOOP_DURATION) / LOOP_DURATION;
-pulse.position.copy(fullPath.getPointAt(t));
-```
-
-Trail ghosts: 4 spheres at `t - i*0.009` each, with `emissiveIntensity` and `scale` decreasing linearly. Update every frame.
+**Vary pulse color per variant:**
+- Variant A: cyan `0x6ee7f7`
+- Variant B: bright green `0x39ff14`
+- Variant C: amber/gold `0xfbbf24`
 
 ---
 
-## Step 8 — Bloom (from `threejs-postprocessing`)
+## Step 9 — Bloom (from `threejs-postprocessing`)
 
 ```javascript
-const composer = new EffectComposer(renderer);
-composer.addPass(new RenderPass(scene, camera));
-
 const bloom = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.9,   // strength
-  0.5,   // radius
-  0.15   // threshold — low so emissive nodes glow
+  new THREE.Vector2(W, H),
+  1.2,   // strength — higher than before
+  0.6,   // radius
+  0.1    // threshold — very low so emissive materials bloom
 );
-composer.addPass(bloom);
 ```
-
-Use `composer.render()` in the animation loop instead of `renderer.render()`.
 
 ---
 
-## Step 9 — Lighting (from `threejs-lighting`)
+## Step 10 — Lighting (from `threejs-lighting`)
 
 ```javascript
-scene.add(new THREE.AmbientLight(0x111133, 2.5));
-
-const key = new THREE.PointLight(0x6688ff, 2.5, 35);
-key.position.set(0, 6, 10);
+scene.add(new THREE.AmbientLight(variantAmbientColor, 3.0)); // brighter ambient than before
+const key = new THREE.PointLight(variantKeyColor, 3.5, 40);
+key.position.set(0, 6, 12);
 scene.add(key);
-
-const fill = new THREE.PointLight(0x331166, 1.2, 28);
-fill.position.set(-10, -4, 6);
-scene.add(fill);
 ```
+
+**Vary lighting per variant** — different ambient and key light colors to set mood.
 
 ---
 
-## Step 10 — Constraints sidebar (HTML overlay, not Three.js)
+## Step 11 — Constraints sidebar (HTML/CSS overlay)
 
-Pure HTML/CSS overlay on top of the canvas. `position: fixed`, right-anchored, full height.
+Same data for all variants, but style it to match each variant's aesthetic.
 
 ```css
 .constraints-panel {
   position: fixed; right: 0; top: 0;
   width: 280px; height: 100vh;
-  background: rgba(4, 6, 18, 0.8);
+  background: variantPanelBg;     /* dark semi-transparent, themed to variant */
   backdrop-filter: blur(18px);
-  border-left: 1px solid rgba(255,255,255,0.07);
+  border-left: 1px solid variantBorderColor;
   overflow-y: auto; z-index: 10;
   padding: 20px 12px;
-  font-family: 'DM Sans', sans-serif;
+  font-family: variantFont;
 }
 ```
 
-Accordion: each item has a header (click to toggle `data-open`) and a body with `max-height: 0 → 200px` CSS transition.
+Accordion behavior: `max-height: 0 → 200px` CSS transition on `data-open` toggle.
 
-Type badge colors: `time`=amber, `energy`=cyan, `personal`=violet, `market`=blue, `economic`=red, `other`=gray.
-
-Also shift the Three.js canvas: `renderer.domElement.style.width = 'calc(100vw - 280px)'` and update camera aspect on resize.
+Type badge colors (consistent across variants):
+- `time` → amber `#f5c842`
+- `energy` → cyan `#6ee7f7`
+- `personal` → violet `#a78bfa`
+- `market` → blue `#60a5fa`
+- `economic` → red `#f87171`
+- `other` → gray
 
 ---
 
-## Step 11 — Resize
+## Step 12 — Resize, orbit controls
 
 ```javascript
 window.addEventListener('resize', () => {
-  const w = window.innerWidth - 280; // account for sidebar
+  const w = window.innerWidth - 280;
   const h = window.innerHeight;
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
@@ -254,11 +258,10 @@ window.addEventListener('resize', () => {
 
 ---
 
-## Step 12 — Animation loop
+## Step 13 — Animation loop
 
 ```javascript
 const clock = new THREE.Clock();
-
 function animate() {
   requestAnimationFrame(animate);
   const delta  = clock.getDelta();
@@ -267,14 +270,15 @@ function animate() {
   controls.update();
   stars.rotation.y += delta * 0.008;
 
-  // pulse
   const t = (elapsed % LOOP_DURATION) / LOOP_DURATION;
   pulse.position.copy(fullPath.getPointAt(t));
-  updateTrails(t, elapsed);
+  updateTrails(t);
 
-  // subtle node float
-  nodes.forEach((n, i) => {
-    n.mesh.position.y = n.baseY + Math.sin(elapsed * 0.5 + i * 1.2) * 0.05;
+  // Subtle node float
+  nodeMeshes.forEach((item, i) => {
+    item.mesh.position.y = item.mesh.userData.baseY + Math.sin(elapsed * 0.5 + i * 1.2) * 0.05;
+    item.sprite.position.y = item.mesh.position.y;
+    item.outline.position.y = item.mesh.position.y;
   });
 
   composer.render();
@@ -286,26 +290,32 @@ animate();
 
 ## Output
 
-Save as `graph-[goal-slug].html` to `./`. Call `present_files`. Tell the user: "Open in any browser — no server needed. Drag to orbit, scroll to zoom."
+Save THREE files to `./`:
+- `graph-[slug]-A.html` — Variant A
+- `graph-[slug]-B.html` — Variant B
+- `graph-[slug]-C.html` — Variant C
+
+Call `present_files` with all three. Tell the user: "Here are 3 aesthetic variants — open each in any browser. Drag to orbit, scroll to zoom. Pick your favourite or ask for adjustments."
 
 ---
 
 ## Example invocations
 
-> "Create a 3D graph for my quant finance goal — nodes are wake up/run, quant research, interview prep, exam prep, daily validation, social capital. Constraints: ADHD, context switching, time pressure, Singapore market."
+> "Create a 3D graph for my quant finance goal — nodes are wake up/run, quant research, interview prep, exam prep, daily validation, social capital. Constraints: ADHD, time pressure, Singapore market."
 
-> "Build a goal graph: start = morning routine, parallel = fitness / writing / networking, goal = launch my startup. Constraints: solo founder, 3-month runway, no funding."
-
-> "Visualize my trading system as a 3D graph — signal generation → risk filter → execution → PnL validation → loop back. Constraints: latency, API rate limits."
+> "Build a goal graph: morning routine → fitness / writing / networking → launch startup. Constraints: solo founder, 3-month runway."
 
 ---
 
 ## Critical rules
 
-- **Single HTML file** — all CSS, JS, Three.js via importmap. No bundler.
-- **Use `<script type="importmap">`** for Three.js CDN — required for ES module imports.
-- **Never use `localStorage`** — all state in memory.
-- **Constraints panel is HTML/CSS** — not Three.js. Canvas renders behind it.
-- **Pulse loops seamlessly** — use `getPointAt(t)` on a closed `CatmullRomCurve3`.
-- **Bloom threshold must be low** (≤ 0.2) so emissive materials actually glow.
-- **Camera starts with a good default view** — all nodes visible, not too zoomed in.
+- **THREE HTML files** — always produce 3 variants, not 1.
+- **Single HTML file per variant** — all CSS, JS, Three.js via importmap inline.
+- **Use `<script type="importmap">`** for Three.js CDN.
+- **Never use `localStorage`** — state in memory only.
+- **Constraints panel is HTML/CSS** — not Three.js, canvas renders behind it.
+- **Pulse loops seamlessly** — closed `CatmullRomCurve3` with `getPointAt(t)`.
+- **Nodes must be VISIBLE** — emissiveIntensity ≥ 1.0, base color not near-black, outline glow mesh.
+- **Edges must be VISIBLE** — opacity ≥ 0.7, tube radius ≥ 0.035, bright enough accent color.
+- **Bloom threshold ≤ 0.15** — emissive materials must actually glow.
+- **Pulse emissiveIntensity ≥ 3.5** — the pulse is the hero element, it must be unmistakably bright.
