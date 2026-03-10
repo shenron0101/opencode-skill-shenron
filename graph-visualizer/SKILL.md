@@ -286,7 +286,7 @@ animate();
 
 ## Output
 
-Save as `graph-[goal-slug].html` to `/mnt/user-data/outputs/`. Call `present_files`. Tell the user: "Open in any browser — no server needed. Drag to orbit, scroll to zoom."
+Save as `graph-[goal-slug].html` to `./`. Call `present_files`. Tell the user: "Open in any browser — no server needed. Drag to orbit, scroll to zoom."
 
 ---
 
