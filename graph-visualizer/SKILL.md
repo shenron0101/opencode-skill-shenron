@@ -1,7 +1,6 @@
 ---
 name: graph-visualizer
-description: >
-  Builds a fully 3D interactive goal-graph visualization as a self-contained HTML file using Three.js. Use this skill whenever the user wants to visualize a goal, system, workflow, or project as an animated directed graph — with a 3D space background, glowing floating nodes, an animated pulse traveling the loop, and a collapsible constraints sidebar. Trigger when the user says things like "create a graph for my goal", "visualize my system as a graph", "build a 3D graph app", "show my workflow as a graph", or "make an interactive graph visualization". Parses natural language description of nodes, edges, weights, and constraints, and produces THREE distinct production-grade Three.js HTML files with different aesthetics.
+description: "Builds a fully 3D interactive goal-graph visualization as a self-contained HTML file using Three.js. Use this skill whenever the user wants to visualize a goal, system, workflow, or project as an animated directed graph — with a 3D space background, glowing floating nodes, an animated pulse traveling the loop, and a collapsible constraints sidebar. Trigger when the user says things like 'create a graph for my goal', 'visualize my system as a graph', 'build a 3D graph app', 'show my workflow as a graph', or 'make an interactive graph visualization'. Parses natural language description of nodes, edges, weights, and constraints, and produces THREE distinct production-grade Three.js HTML files with different aesthetics."
 ---
 
 # Graph Visualizer — Three.js Build Guide
@@ -53,6 +52,15 @@ Before any code, commit to 3 fully distinct aesthetic directions. Name them. Exa
 
 Each variant gets its own HTML file. The graph data (nodes, edges, constraints) is identical — only the visual treatment changes.
 
+**Per-variant specifications** — all variant-specific values throughout this skill come from this table:
+
+| Element | Variant A (cosmic) | Variant B (terminal) | Variant C (warm) |
+|---------|-------------------|---------------------|------------------|
+| Stars | white, 3 dark-blue/purple nebula shells | green-tinted `0x88ffaa`, no nebula — pure black void | warm cream `0xffe8c0`, soft amber nebula shells |
+| Node shape | BoxGeometry (sharp, geometric) | BoxGeometry extreme aspect ratio (wide/flat) | CylinderGeometry (rounded pill, laid flat) |
+| Pulse color | cyan `0x6ee7f7` | bright green `0x39ff14` | amber/gold `0xfbbf24` |
+| Lighting | themed ambient + key light colors per mood | themed ambient + key light colors per mood | themed ambient + key light colors per mood |
+
 ---
 
 ## Step 3 — Three.js scene setup (same for all variants, from `threejs-fundamentals`)
@@ -80,12 +88,9 @@ controls.maxDistance = 40;
 
 ## Step 4 — Starfield background (from `threejs-geometry`)
 
-~800 `THREE.Points` placed in a sphere of radius 60–80. Slowly rotate each frame.
+~800 `THREE.Points` placed in a sphere of radius 60–80. Slowly rotate each frame. Apply variant-specific star colors and nebula settings.
 
-**Vary the starfield per variant:**
-- Variant A: white stars, 3 dark-blue/purple nebula shells
-- Variant B: green-tinted stars (color: 0x88ffaa), no nebula shells — pure black void
-- Variant C: warm cream stars (color: 0xffe8c0), soft amber nebula shells
+**Checkpoint:** Open the HTML — verify the starfield renders on a blank canvas before proceeding to nodes.
 
 ---
 
@@ -105,15 +110,14 @@ function nodePosition(node) {
 
 ---
 
-## Step 6 — Node meshes: VISIBILITY IS CRITICAL (from `threejs-materials`)
+## Visibility Rules (referenced by Steps 6 and 7)
 
-**The #1 visibility problem in past versions: nodes were near-black with low emissive — impossible to read.**
+Past versions suffered from near-invisible nodes and edges on dark backgrounds. Apply these rules to all scene elements:
 
-Fix with these rules:
-1. **Base color must NOT be near-black.** Use at minimum 15–25% lightness. E.g. `0x1a2a3a` not `0x020408`.
-2. **emissiveIntensity must be 1.0–2.5** (not 0.3–0.5). Nodes should visibly glow.
-3. **Add a visible border/outline**: Create a slightly larger `BoxGeometry` behind each node with an emissive outline material, scaled by 1.05. This creates a visible glowing edge.
-4. **Labels must be large and bright**: canvas size 512×128, font size 38–44px, white fill, with a subtle dark shadow behind the text for contrast.
+- **Base colors must NOT be near-black.** Use at minimum 15–25% lightness. E.g. `0x1a2a3a` not `0x020408`.
+- **emissiveIntensity for nodes: 1.0–2.5** (not 0.3–0.5). Nodes should visibly glow.
+- **Edge opacity: 0.7–0.9** for normal edges (not 0.45). Edge color must contrast the background.
+- **Labels must be large and bright**: canvas size 512×128, font size 38–44px, white fill, dark shadow for contrast.
 
 ```javascript
 // CORRECT — high visibility node
@@ -122,6 +126,20 @@ Fix with these rules:
 // WRONG — near-invisible
 { color: 0x080820, emissive: 0x4466ff, emissiveIntensity: 0.3, roughness: 0.6, metalness: 0.1 }
 ```
+
+```javascript
+// CORRECT — visible edge
+new THREE.MeshBasicMaterial({ color: 0x1a5a8a, transparent: true, opacity: 0.75 })
+
+// WRONG — invisible edge
+new THREE.MeshBasicMaterial({ color: 0x1a3a4a, transparent: true, opacity: 0.45 })
+```
+
+---
+
+## Step 6 — Node meshes (from `threejs-materials`)
+
+Follow **Visibility Rules** above for all node materials and labels. Add a visible border/outline: create a slightly larger geometry behind each node with an emissive outline material, scaled by 1.05.
 
 **Node sizes by weight:**
 - `large`: 2.2 × 0.6 × 0.4
@@ -138,29 +156,15 @@ outline.position.z -= 0.05;
 scene.add(outline);
 ```
 
-**Vary node shapes per variant:**
-- Variant A: BoxGeometry (sharp, geometric)
-- Variant B: BoxGeometry with extreme aspect ratio (wide and flat, terminal-style)
-- Variant C: Use a `CylinderGeometry(w/2, w/2, h, 32)` (rounded pill, laid flat)
+Vary node shapes per variant.
+
+**Checkpoint:** Open the HTML — confirm all nodes are clearly visible against the background and labels are readable before adding edges.
 
 ---
 
-## Step 7 — Edges as tubes: VISIBILITY IS CRITICAL (from `threejs-geometry`)
+## Step 7 — Edges as tubes (from `threejs-geometry`)
 
-**The #2 visibility problem: edges at opacity 0.45 on dark background are near-invisible.**
-
-Fix:
-1. **opacity must be 0.7–0.9** for normal edges
-2. **Edge color should be light/bright enough to contrast the background**, not match it.
-3. Use the variant's accent color for edges (same hue as node glow but slightly desaturated)
-
-```javascript
-// CORRECT
-new THREE.MeshBasicMaterial({ color: 0x1a5a8a, transparent: true, opacity: 0.75 })
-
-// WRONG — invisible
-new THREE.MeshBasicMaterial({ color: 0x1a3a4a, transparent: true, opacity: 0.45 })
-```
+Follow **Visibility Rules** above for all edge materials. Use the variant's accent color for edges (same hue as node glow but slightly desaturated).
 
 Tube radius: `0.035` (not 0.025 — thicker is more visible).
 
@@ -179,12 +183,7 @@ Pulse sphere: `SphereGeometry(0.14, 16, 16)` — slightly larger than before (0.
 new THREE.MeshStandardMaterial({ color: accentColor, emissive: accentColor, emissiveIntensity: 4.0 })
 ```
 
-4–5 trail ghosts, decreasing size and emissiveIntensity. Loop duration: 8 seconds.
-
-**Vary pulse color per variant:**
-- Variant A: cyan `0x6ee7f7`
-- Variant B: bright green `0x39ff14`
-- Variant C: amber/gold `0xfbbf24`
+4–5 trail ghosts, decreasing size and emissiveIntensity. Loop duration: 8 seconds. Apply variant-specific pulse colors.
 
 ---
 
@@ -210,7 +209,9 @@ key.position.set(0, 6, 12);
 scene.add(key);
 ```
 
-**Vary lighting per variant** — different ambient and key light colors to set mood.
+Vary ambient and key light colors per variant to set mood.
+
+**Checkpoint:** After adding bloom and lighting, verify the bloom effect is active — emissive nodes should have a visible glow halo in the rendered output.
 
 ---
 
