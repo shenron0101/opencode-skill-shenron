@@ -1,0 +1,13 @@
+{
+  "name": "vault-skills",
+  "version": "1.0.0",
+  "description": "Claude Code plugin for dense LaTeX cheatsheets and Obsidian interview-question generation from vault notes.",
+  "license": "MIT",
+  "keywords": [
+    "vault",
+    "study",
+    "latex",
+    "obsidian",
+    "interview-prep"
+  ]
+}
